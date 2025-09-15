@@ -18,11 +18,7 @@ class ResumeViewSet(viewsets.ViewSet):
 
     def partial_update(self, request):
         resume, created = Resume.objects.get_or_create(user=request.user)
-        # Map frontend 'experience' to backend 'work_experience'
-        data = request.data.copy()
-        if 'experience' in data:
-            data['work_experience'] = data.pop('experience')
-        serializer = ResumeSerializer(resume, data=data, partial=True)
+        serializer = ResumeSerializer(resume, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -37,16 +33,21 @@ class ResumeViewSet(viewsets.ViewSet):
         styles = getSampleStyleSheet()
         elements = []
 
-        # Title
-        elements.append(Paragraph(f"{resume.full_name or 'Your Name'}'s Resume", styles['Title']))
+        # Title and Professional Title
+        elements.append(Paragraph(f"{resume.full_name or 'Your Name'}", styles['Title']))
+        if resume.title:
+            elements.append(Paragraph(resume.title, styles['Heading2']))
         elements.append(Spacer(1, 12))
 
         # Contact Info
         contact_data = [
             ['Email:', resume.email or 'N/A'],
             ['Phone:', resume.phone or 'N/A'],
+            ['Location:', resume.location or 'N/A'],
             ['Address:', resume.address or 'N/A'],
             ['LinkedIn:', resume.linkedin or 'N/A'],
+            ['GitHub:', resume.github or 'N/A'],
+            ['Portfolio:', resume.portfolio or 'N/A'],
         ]
         contact_table = Table(contact_data, colWidths=[100, 400])
         contact_table.setStyle(TableStyle([
@@ -77,14 +78,14 @@ class ResumeViewSet(viewsets.ViewSet):
                 elements.append(Spacer(1, 6))
             elements.append(Spacer(1, 12))
 
-        # Work Experience
+        # Experience
         try:
-            work_experience = json.loads(resume.work_experience) if resume.work_experience else []
+            experience = json.loads(resume.experience) if resume.experience else []
         except json.JSONDecodeError:
-            work_experience = []
-        if work_experience:
+            experience = []
+        if experience:
             elements.append(Paragraph("Work Experience", styles['Heading2']))
-            for exp in work_experience:
+            for exp in experience:
                 elements.append(Paragraph(f"{exp.get('position', '')}", styles['BodyText']))
                 elements.append(Paragraph(exp.get('company', ''), styles['BodyText']))
                 elements.append(Paragraph(f"{exp.get('startDate', '')} - {exp.get('endDate', '')}", styles['BodyText']))
@@ -103,15 +104,19 @@ class ResumeViewSet(viewsets.ViewSet):
                 elements.append(Paragraph(proj.get('name', ''), styles['BodyText']))
                 elements.append(Paragraph(f"{proj.get('startDate', '')} - {proj.get('endDate', '')}", styles['BodyText']))
                 elements.append(Paragraph(proj.get('description', '').replace('\n', '<br/>'), styles['BodyText']))
-                elements.append(Paragraph(f"Technologies: {proj.get('technologies', '')}", styles['BodyText']))
+                elements.append(Paragraph(f"Technologies: {', '.join(proj.get('technologies', []))}", styles['BodyText']))
                 elements.append(Spacer(1, 6))
             elements.append(Spacer(1, 12))
 
         # Other sections
         sections = [
             ('Skills', resume.skills),
+            ('Languages', resume.languages),
             ('Certifications', resume.certifications),
-            ('References', resume.references),
+            ('Awards', resume.awards),
+            ('Organizations', resume.organizations),
+            ('Co-curricular Activities', resume.coCurricular),
+            ('Declaration', resume.declarations),
         ]
         for title, content in sections:
             if content:
