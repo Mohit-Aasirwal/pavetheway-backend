@@ -1,8 +1,8 @@
+# serializers.py
 from rest_framework import serializers
 from .models import Resume
 import json
 
-# serializers.py
 class JSONField(serializers.Field):
     def to_representation(self, value):
         if value:
@@ -13,15 +13,20 @@ class JSONField(serializers.Field):
         return []
 
     def to_internal_value(self, data):
+        if data is None:
+            return None
         if isinstance(data, str):
             # If it's already a string, assume it's JSON
             try:
-                json.loads(data)  # Validate it's proper JSON
-                return data
+                parsed = json.loads(data)  # Validate it's proper JSON
+                if isinstance(parsed, list):
+                    return data  # Return the JSON string as-is
+                else:
+                    raise serializers.ValidationError("JSON must represent a list")
             except json.JSONDecodeError:
                 raise serializers.ValidationError("Invalid JSON string")
         elif isinstance(data, list):
-            return json.dumps(data)
+            return json.dumps(data)  # Convert list to JSON string for storage
         else:
             raise serializers.ValidationError("Must be a list or JSON string")
 
@@ -62,8 +67,6 @@ class ResumeSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        for field in ['education', 'experience', 'projects']:
-            if field in data and data[field]:
-                if not isinstance(data[field], list):
-                    raise serializers.ValidationError({field: "Must be a list"})
+        # Remove this validation since JSONField already handles it
+        # The data here will be JSON strings, not lists
         return data
